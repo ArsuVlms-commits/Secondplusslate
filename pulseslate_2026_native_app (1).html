@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#090d16">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>PulseSlate — Spatial Direct Messenger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #070b14;
+            --bg-surface: rgba(15, 23, 42, 0.72);
+            --bg-elevated: rgba(30, 41, 59, 0.78);
+            --border-glass: rgba(148, 163, 184, 0.14);
+            --accent-primary: #38bdf8;
+            --accent-secondary: #6366f1;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-void);
+            color: #f8fafc;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100dvh;
+            width: 100vw;
+            user-select: none;
+        }
+
+        .ambient-mesh {
+            background:
+                radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.14) 0%, transparent 42%),
+                radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.14) 0%, transparent 45%),
+                radial-gradient(circle at 50% 90%, rgba(16, 185, 129, 0.08) 0%, transparent 45%),
+                #070b14;
+        }
+
+        .glass-card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
+            border: 1px solid var(--border-glass);
+            box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.65);
+        }
+
+        .glass-header {
+            background: rgba(9, 13, 22, 0.82);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        /* Fitts's Law Tactile Spring Buttons */
+        .tactile-btn {
+            transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+            min-height: 44px;
+            cursor: pointer;
+        }
+        .tactile-btn:active {
+            transform: scale(0.96);
+        }
+
+        .primary-cta {
+            min-height: 52px;
+            background: linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%);
+            box-shadow: 0 10px 28px -6px rgba(14, 165, 233, 0.45);
+        }
+        .primary-cta:hover {
+            filter: brightness(1.06);
+        }
+
+        /* Chat Theme Gradients */
+        .theme-default .bubble-me { background: linear-gradient(135deg, #0284c7, #4f46e5); color: #fff; }
+        .theme-emerald .bubble-me { background: linear-gradient(135deg, #059669, #0d9488); color: #fff; }
+        .theme-sunset .bubble-me { background: linear-gradient(135deg, #e11d48, #ea580c); color: #fff; }
+        .theme-violet .bubble-me { background: linear-gradient(135deg, #7c3aed, #c026d3); color: #fff; }
+        .theme-obsidian .bubble-me { background: linear-gradient(135deg, #334155, #1e293b); border: 1px solid rgba(255,255,255,0.12); color: #fff; }
+
+        /* Chat Wallpapers */
+        .wp-clean { background-color: transparent; }
+        .wp-dots {
+            background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+            background-size: 18px 18px;
+        }
+        .wp-grid {
+            background-image: linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .wp-aurora {
+            background: radial-gradient(circle at 20% 25%, rgba(14, 165, 233, 0.12), transparent 50%),
+                        radial-gradient(circle at 80% 75%, rgba(99, 102, 241, 0.12), transparent 50%);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.22); border-radius: 999px; }
+
+        /* Screen Guard Blur */
+        body.screen-guarded #app-shell {
+            filter: blur(22px);
+            transition: filter 0.2s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(14px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-panel { animation: slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    </style>
+</head>
+<body class="ambient-mesh">
+
+    <!-- ==================== AUTHENTICATION WIZARD (ONE SCREEN AT A TIME) ==================== -->
+    <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div class="w-full max-w-md glass-card rounded-3xl p-6 sm:p-8 animate-panel relative overflow-hidden">
+            <!-- Top Progress Bar -->
+            <div id="wizard-progress-wrap" class="hidden mb-6">
+                <div class="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
+                    <button type="button" onclick="wizardBack()" class="tactile-btn flex items-center gap-1.5 text-slate-300 hover:text-white px-2 py-1 -ml-2 rounded-xl">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+                    </button>
+                    <span id="wizard-step-label">Step 1 of 2</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="wizard-progress-bar" class="h-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-300" style="width: 50%"></div>
+                </div>
+            </div>
+
+            <!-- STEP 0: CLEAN LANDING SCREEN -->
+            <div id="wizard-step-0" class="space-y-6">
+                <div class="flex flex-col items-center text-center pt-2">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/25 mb-4">
+                        <i data-lucide="zap" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">PulseSlate</h1>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <button type="button" onclick="startAuthWizard('signup')" class="tactile-btn primary-cta w-full rounded-2xl font-bold text-white text-base flex items-center justify-center gap-2">
+                        Create Account
+                    </button>
+                    <button type="button" onclick="startAuthWizard('login')" class="tactile-btn w-full rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 font-semibold text-slate-100 text-base flex items-center justify-center gap-2">
+                        Sign In
+                    </button>
+                </div>
+
+                <div class="relative flex py-1 items-center">
+                    <div class="flex-grow border-t border-slate-800"></div>
+                    <span class="flex-shrink mx-3 text-xs font-medium text-slate-500 uppercase tracking-wider">or</span>
+                    <div class="flex-grow border-t border-slate-800"></div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2.5">
+                    <button type="button" onclick="handleGoogleSignIn()" class="tactile-btn w-full rounded-2xl bg-white text-slate-900 hover:bg-slate-100 font-bold text-sm flex items-center justify-center gap-2.5 shadow-sm">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/><path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/></svg>
+                        Continue with Google
+                    </button>
+                    <button type="button" onclick="openPhoneOtpStep()" class="tactile-btn w-full rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/70 font-semibold text-slate-200 text-sm flex items-center justify-center gap-2">
+                        <i data-lucide="smartphone" class="w-4 h-4 text-sky-400"></i>
+                        Continue with Phone OTP
+                    </button>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800/70 text-center">
+                    <span class="text-[11px] font-medium text-slate-400">Created by <strong class="text-sky-400 font-bold">Sourav Shil</strong></span>
+                </div>
+            </div>
+
+            <!-- STEP 1: USERNAME -->
+            <div id="wizard-step-1" class="hidden space-y-5 animate-panel">
+                <div>
+                    <h2 id="step1-title" class="text-xl font-bold text-white">Choose your @username</h2>
+                    <p id="step1-sub" class="text-xs text-slate-400 mt-1">Friends will use this unique handle to invite you.</p>
+                </div>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">@</span>
+                    <input id="wiz-username" type="text" autocomplete="off" placeholder="your_handle"
+                        onkeydown="if(event.key==='Enter') wizardNextFromUsername()"
+                        class="w-full pl-9 pr-4 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-700 focus:border-sky-400 focus:outline-none text-white font-medium">
+                </div>
+                <p id="wiz-err-1" class="hidden text-xs text-rose-400 font-medium"></p>
+                <button type="button" onclick="wizardNextFromUsername()" class="tactile-btn primary-cta w-full rounded-2xl font-bold text-white flex items-center justify-center gap-2">
+                    Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- STEP 2: PASSWORD -->
+            <div id="wizard-step-2" class="hidden space-y-5 animate-panel">
+                <div>
+                    <h2 id="step2-title" class="text-xl font-bold text-white">Set your password</h2>
+                    <p id="step2-sub" class="text-xs text-slate-400 mt-1">Signing in as <span id="wiz-handle-preview" class="text-sky-400 font-semibold">@user</span></p>
+                </div>
+                <div class="relative">
+                    <input id="wiz-password" type="password" placeholder="••••••••"
+                        onkeydown="if(event.key==='Enter') completePasswordStep()"
+                        class="w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-700 focus:border-sky-400 focus:outline-none text-white font-medium">
+                </div>
+                <p id="wiz-err-2" class="hidden text-xs text-rose-400 font-medium"></p>
+                <button id="wiz-submit-btn" type="button" onclick="completePasswordStep()" class="tactile-btn primary-cta w-full rounded-2xl font-bold text-white flex items-center justify-center gap-2">
+                    Enter PulseSlate
+                </button>
+            </div>
+
+            <!-- PHONE OTP STEP 1: PHONE NUMBER -->
+            <div id="wizard-phone-1" class="hidden space-y-5 animate-panel">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Phone verification</h2>
+                    <p class="text-xs text-slate-400 mt-1">Include country code (e.g. +91 9876543210)</p>
+                </div>
+                <input id="wiz-phone-input" type="tel" placeholder="+91 9876543210"
+                    onkeydown="if(event.key==='Enter') sendPhoneOtpCode()"
+                    class="w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-700 focus:border-sky-400 focus:outline-none text-white font-medium">
+                <div id="recaptcha-container"></div>
+                <p id="wiz-phone-err-1" class="hidden text-xs text-rose-400 font-medium"></p>
+                <button id="send-otp-btn" type="button" onclick="sendPhoneOtpCode()" class="tactile-btn primary-cta w-full rounded-2xl font-bold text-white">
+                    Send 6-Digit OTP
+                </button>
+            </div>
+
+            <!-- PHONE OTP STEP 2: CODE -->
+            <div id="wizard-phone-2" class="hidden space-y-5 animate-panel">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Enter OTP Code</h2>
+                    <p class="text-xs text-slate-400 mt-1">Sent via SMS to <span id="wiz-phone-display" class="text-sky-400 font-semibold"></span></p>
+                </div>
+                <input id="wiz-otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
+                    onkeydown="if(event.key==='Enter') verifyPhoneOtpCode()"
+                    class="w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-700 focus:border-sky-400 focus:outline-none text-white text-center tracking-[0.4em] text-lg font-bold">
+                <p id="wiz-phone-err-2" class="hidden text-xs text-rose-400 font-medium"></p>
+                <button id="verify-otp-btn" type="button" onclick="verifyPhoneOtpCode()" class="tactile-btn primary-cta w-full rounded-2xl font-bold text-white">
+                    Verify & Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APPLICATION SHELL ==================== -->
+    <div id="app-shell" class="hidden h-full w-full flex flex-col md:flex-row overflow-hidden" style="padding-top: var(--safe-top); padding-bottom: var(--safe-bottom);">
+
+        <!-- LEFT NAVIGATION RAIL (Desktop) / BOTTOM BAR (Mobile) -->
+        <nav class="order-2 md:order-1 glass-header md:border-r md:border-b-0 border-t border-slate-800/80 flex md:flex-col items-center justify-around md:justify-between py-2 md:py-5 px-2 md:w-20 shrink-0 z-20">
+            <div class="hidden md:flex flex-col items-center gap-3">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-sky-500/20">
+                    <i data-lucide="zap" class="w-5 h-5 text-white"></i>
+                </div>
+            </div>
+
+            <div class="flex md:flex-col items-center justify-around w-full md:w-auto gap-1 md:gap-4">
+                <button type="button" onclick="switchMainTab('chats')" id="nav-chats" class="tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl bg-sky-500/15 text-sky-400 relative">
+                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                    <span class="text-[10px] font-semibold mt-1 md:hidden">Chats</span>
+                </button>
+
+                <button type="button" onclick="openInviteModal()" class="tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800/70 relative">
+                    <i data-lucide="user-plus" class="w-5 h-5"></i>
+                    <span id="invite-badge-dot" class="hidden absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-950"></span>
+                    <span class="text-[10px] font-semibold mt-1 md:hidden">Invite</span>
+                </button>
+
+                <button type="button" onclick="switchMainTab('updates')" id="nav-updates" class="tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800/70">
+                    <i data-lucide="radio" class="w-5 h-5"></i>
+                    <span class="text-[10px] font-semibold mt-1 md:hidden">Status</span>
+                </button>
+
+                <button type="button" onclick="openSettingsModal()" class="tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800/70">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="text-[10px] font-semibold mt-1 md:hidden">Settings</span>
+                </button>
+            </div>
+
+            <!-- User Profile Trigger -->
+            <button type="button" onclick="openProfileEditModal()" class="tactile-btn relative group p-1 rounded-2xl">
+                <img id="rail-user-avatar" src="" alt="Me" class="w-10 h-10 rounded-2xl object-cover ring-2 ring-sky-400/50">
+                <span class="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-950"></span>
+            </button>
+        </nav>
+
+        <!-- SIDEBAR: CHATS / UPDATES LIST -->
+        <aside id="sidebar-panel" class="order-1 md:order-2 w-full md:w-80 lg:w-96 flex flex-col border-r border-slate-800/80 bg-slate-950/45 h-full shrink-0">
+            <!-- Sidebar Header -->
+            <div class="p-4 flex items-center justify-between border-b border-slate-800/70">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 id="sidebar-username" class="font-bold text-base text-white tracking-tight">@user</h2>
+                        <span id="sidebar-status-pill" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium">🟢 Online</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="openGroupModal()" title="New Group" class="tactile-btn p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-800">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                    </button>
+                    <button type="button" onclick="openInviteModal()" title="Invite Friend" class="tactile-btn p-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="px-4 py-3">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input id="chat-search-input" type="text" oninput="renderChatList()" placeholder="Search friends or messages..."
+                        class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-900/85 border border-slate-800 focus:border-sky-500/60 focus:outline-none text-xs text-white placeholder-slate-500">
+                </div>
+            </div>
+
+            <!-- Active Friends & 24h Status Strip -->
+            <div id="stories-strip" class="px-4 pb-3 flex items-center gap-3 overflow-x-auto border-b border-slate-800/60"></div>
+
+            <!-- TAB 1: DIRECT CHATS LIST -->
+            <div id="tab-chats-view" class="flex-1 overflow-y-auto p-3 space-y-1.5"></div>
+
+            <!-- TAB 2: 24H STATUS UPDATES -->
+            <div id="tab-updates-view" class="hidden flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-sm text-white">Your 24h Status</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Share a quick thought with accepted friends</p>
+                    </div>
+                    <button type="button" onclick="openStoryModal()" class="tactile-btn px-3.5 py-2 rounded-xl bg-sky-500 text-white text-xs font-bold">
+                        Post Status
+                    </button>
+                </div>
+                <div id="updates-feed-list" class="space-y-3"></div>
+            </div>
+        </aside>
+
+        <!-- CONVERSATION STAGE -->
+        <main id="chat-stage" class="hidden md:flex order-1 md:order-3 flex-1 flex-col h-full bg-slate-950/25 relative">
+            <!-- Empty State when no chat selected -->
+            <div id="empty-chat-placeholder" class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                <div class="w-16 h-16 rounded-3xl bg-slate-900/90 border border-slate-800 flex items-center justify-center mb-4">
+                    <i data-lucide="send" class="w-7 h-7 text-sky-400"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white">Private Invite-Only Messaging</h3>
+                <p class="text-xs text-slate-400 max-w-xs mt-1.5 leading-relaxed">Invite a friend using their <span class="text-sky-400 font-semibold">@username</span>. Once they accept, your real-time conversation appears here.</p>
+                <button type="button" onclick="openInviteModal()" class="tactile-btn mt-5 px-5 py-3 rounded-2xl primary-cta text-white text-xs font-bold flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i> Invite a Friend
+                </button>
+            </div>
+
+            <!-- Active Thread Container -->
+            <div id="active-thread-container" class="hidden flex-1 flex flex-col h-full overflow-hidden theme-default">
+                <!-- Thread Header -->
+                <header class="glass-header px-4 py-3 flex items-center justify-between shrink-0 z-10">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <button type="button" onclick="closeMobileChat()" class="md:hidden tactile-btn p-2 -ml-2 rounded-xl text-slate-300 hover:text-white">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                        </button>
+                        <img id="active-chat-avatar" src="" alt="" class="w-10 h-10 rounded-2xl object-cover bg-slate-800 shrink-0">
+                        <div class="min-w-0">
+                            <h3 id="active-chat-title" class="font-bold text-sm text-white truncate">@friend</h3>
+                            <p id="active-chat-subtitle" class="text-[11px] text-emerald-400 truncate">Encrypted • Connected</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="startCallModal('Voice')" class="tactile-btn p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300">
+                            <i data-lucide="phone" class="w-4 h-4"></i>
+                        </button>
+                        <button type="button" onclick="startCallModal('Video')" class="tactile-btn p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300">
+                            <i data-lucide="video" class="w-4 h-4"></i>
+                        </button>
+                        <button type="button" onclick="toggleThreadSettings()" class="tactile-btn p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300">
+                            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Pinned Message Banner -->
+                <div id="pinned-banner" class="hidden px-4 py-2 bg-sky-500/10 border-b border-sky-500/20 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2 truncate">
+                        <i data-lucide="pin" class="w-3.5 h-3.5 text-sky-400 shrink-0"></i>
+                        <span id="pinned-banner-text" class="text-sky-200 truncate"></span>
+                    </div>
+                    <button type="button" onclick="clearPinnedMessage()" class="text-slate-400 hover:text-white px-2">✕</button>
+                </div>
+
+                <!-- Thread Customization Drawer -->
+                <div id="thread-settings-drawer" class="hidden p-4 bg-slate-900/95 border-b border-slate-800 space-y-3 text-xs">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="font-semibold text-slate-300">Bubble Theme:</span>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="setChatTheme('theme-default')" class="w-6 h-6 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 ring-2 ring-white/30"></button>
+                            <button type="button" onclick="setChatTheme('theme-emerald')" class="w-6 h-6 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600"></button>
+                            <button type="button" onclick="setChatTheme('theme-sunset')" class="w-6 h-6 rounded-full bg-gradient-to-tr from-rose-500 to-orange-500"></button>
+                            <button type="button" onclick="setChatTheme('theme-violet')" class="w-6 h-6 rounded-full bg-gradient-to-tr from-violet-600 to-fuchsia-600"></button>
+                            <button type="button" onclick="setChatTheme('theme-obsidian')" class="w-6 h-6 rounded-full bg-slate-700"></button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="font-semibold text-slate-300">Wallpaper:</span>
+                        <div class="flex gap-1.5">
+                            <button type="button" onclick="setChatWallpaper('wp-clean')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700">Clean</button>
+                            <button type="button" onclick="setChatWallpaper('wp-dots')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700">Dots</button>
+                            <button type="button" onclick="setChatWallpaper('wp-grid')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700">Grid</button>
+                            <button type="button" onclick="setChatWallpaper('wp-aurora')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700">Aurora</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages Feed -->
+                <div id="messages-scroll-area" class="flex-1 overflow-y-auto p-4 space-y-2.5 relative wp-clean"></div>
+
+                <!-- Hick's Law Smart Quick-Reply Chips -->
+                <div class="px-4 py-1.5 flex items-center gap-2 overflow-x-auto border-t border-slate-800/50 bg-slate-950/40">
+                    <button type="button" onclick="sendQuickText('👋 Hey!')" class="shrink-0 px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300">👋 Hey!</button>
+                    <button type="button" onclick="sendQuickText('🔥 Sounds good!')" class="shrink-0 px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300">🔥 Sounds good!</button>
+                    <button type="button" onclick="sendQuickText('😂 Haha!')" class="shrink-0 px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300">😂 Haha!</button>
+                    <button type="button" onclick="sendQuickText('On my way 🚀')" class="shrink-0 px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300">On my way 🚀</button>
+                </div>
+
+                <!-- Attachment Tray -->
+                <div id="attachment-tray" class="hidden px-4 py-2.5 bg-slate-900/95 border-t border-slate-800 grid grid-cols-4 gap-2 text-xs">
+                    <label class="tactile-btn flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 cursor-pointer">
+                        <i data-lucide="image" class="w-4 h-4 text-sky-400 mb-1"></i>
+                        <span>Photo</span>
+                        <input type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </label>
+                    <button type="button" onclick="openSketchModal()" class="tactile-btn flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800">
+                        <i data-lucide="pen-tool" class="w-4 h-4 text-emerald-400 mb-1"></i>
+                        <span>Sketch</span>
+                    </button>
+                    <button type="button" onclick="openPollModal()" class="tactile-btn flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-amber-400 mb-1"></i>
+                        <span>Poll</span>
+                    </button>
+                    <button type="button" onclick="shareLiveLocation()" class="tactile-btn flex flex-col items-center justify-center p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-rose-400 mb-1"></i>
+                        <span>Location</span>
+                    </button>
+                </div>
+
+                <!-- Message Composer -->
+                <div class="p-3 glass-header flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="toggleAttachmentTray()" class="tactile-btn p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                    </button>
+                    <input id="message-input" type="text" placeholder="Message..."
+                        onkeydown="if(event.key==='Enter') handleSendTextMessage()"
+                        class="flex-1 px-4 py-3 rounded-2xl bg-slate-900/90 border border-slate-800 focus:border-sky-400 focus:outline-none text-sm text-white placeholder-slate-500">
+                    <button type="button" id="voice-record-btn" onclick="toggleVoiceRecording()" class="tactile-btn p-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">
+                        <i data-lucide="mic" class="w-5 h-5"></i>
+                    </button>
+                    <button type="button" onclick="handleSendTextMessage()" class="tactile-btn p-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white shadow-md shadow-sky-500/20">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== INCOMING FRIEND INVITE ACCEPT / DECLINE POPUP ==================== -->
+    <div id="incoming-invite-popup" class="hidden fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:w-96 z-50 glass-card rounded-3xl p-5 border border-sky-500/30 animate-panel">
+        <div class="flex items-center gap-3.5">
+            <img id="popup-inviter-avatar" src="" alt="" class="w-12 h-12 rounded-2xl object-cover bg-slate-800">
+            <div class="flex-1 min-w-0">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Connection Request</span>
+                <h4 id="popup-inviter-name" class="font-bold text-sm text-white truncate">@friend</h4>
+                <p class="text-xs text-slate-400 truncate">Wants to connect and chat with you</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5 mt-4">
+            <button type="button" id="popup-decline-btn" class="tactile-btn py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold">
+                Decline
+            </button>
+            <button type="button" id="popup-accept-btn" class="tactile-btn py-2.5 rounded-2xl primary-cta text-white text-xs font-bold">
+                Accept
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== INVITE FRIENDS MODAL ==================== -->
+    <div id="invite-friends-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="w-full max-w-md glass-card rounded-3xl p-6 space-y-5 animate-panel">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Invite Friends</h3>
+                <button type="button" onclick="document.getElementById('invite-friends-modal').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-slate-400">Send Invite by @username</label>
+                <div class="flex gap-2">
+                    <input id="invite-username-input" type="text" placeholder="@friend_username"
+                        onkeydown="if(event.key==='Enter') sendFriendInvite()"
+                        class="flex-1 px-4 py-3 rounded-2xl bg-slate-900 border border-slate-700 focus:border-sky-400 focus:outline-none text-sm text-white">
+                    <button type="button" onclick="sendFriendInvite()" class="tactile-btn px-4 rounded-2xl primary-cta text-white text-xs font-bold">
+                        Invite
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Pending Invites</h4>
+                <div id="modal-pending-invites-list" class="space-y-2 max-h-52 overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SETTINGS & PRIVACY SAFETY MODAL ==================== -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="w-full max-w-md glass-card rounded-3xl p-6 space-y-5 max-h-[90dvh] overflow-y-auto animate-panel">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Settings & Privacy</h3>
+                <button type="button" onclick="document.getElementById('settings-modal').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <!-- Created By Sourav Shil Credit Card -->
+            <div class="p-4 rounded-2xl bg-gradient-to-r from-sky-500/15 to-indigo-500/15 border border-sky-500/25 flex items-center justify-between">
+                <div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Created By</span>
+                    <h4 class="font-extrabold text-sm text-white">Sourav Shil</h4>
+                </div>
+                <span class="px-2.5 py-1 rounded-xl bg-slate-900/90 text-[11px] font-semibold text-slate-300 border border-slate-700">PulseSlate 2026</span>
+            </div>
+
+            <!-- Privacy Safety Toggles -->
+            <div class="space-y-3 text-xs">
+                <label class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 cursor-pointer">
+                    <div>
+                        <div class="font-bold text-white">Invite-Only Protection</div>
+                        <div class="text-slate-400 mt-0.5">Only accepted friends can message you</div>
+                    </div>
+                    <input id="priv-invite-only" type="checkbox" checked onchange="savePrivacySettings()" class="w-4 h-4 accent-sky-500">
+                </label>
+
+                <label class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 cursor-pointer">
+                    <div>
+                        <div class="font-bold text-white">Hide Read Receipts</div>
+                        <div class="text-slate-400 mt-0.5">Prevent senders from seeing when you read</div>
+                    </div>
+                    <input id="priv-hide-receipts" type="checkbox" onchange="savePrivacySettings()" class="w-4 h-4 accent-sky-500">
+                </label>
+
+                <label class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 cursor-pointer">
+                    <div>
+                        <div class="font-bold text-white">Ghost Online Status</div>
+                        <div class="text-slate-400 mt-0.5">Hide your active green indicator</div>
+                    </div>
+                    <input id="priv-ghost-mode" type="checkbox" onchange="savePrivacySettings()" class="w-4 h-4 accent-sky-500">
+                </label>
+
+                <label class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 cursor-pointer">
+                    <div>
+                        <div class="font-bold text-white">App Switch Blur Guard</div>
+                        <div class="text-slate-400 mt-0.5">Auto-blur chats when switching windows</div>
+                    </div>
+                    <input id="priv-screen-guard" type="checkbox" onchange="savePrivacySettings()" class="w-4 h-4 accent-sky-500">
+                </label>
+            </div>
+
+            <!-- Block User Section -->
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-400">Blocked Accounts</label>
+                <div class="flex gap-2">
+                    <input id="block-username-input" type="text" placeholder="@username to block"
+                        class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
+                    <button type="button" onclick="blockUserByHandle()" class="tactile-btn px-3.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold">
+                        Block
+                    </button>
+                </div>
+                <div id="blocked-users-list" class="flex flex-wrap gap-1.5 pt-1"></div>
+            </div>
+
+            <button type="button" onclick="handleLogout()" class="tactile-btn w-full py-3 rounded-2xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center justify-center gap-2">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== PROFILE & CUSTOM DP STUDIO MODAL ==================== -->
+    <div id="profile-edit-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="w-full max-w-md glass-card rounded-3xl p-6 space-y-4 animate-panel">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Your Profile & DP</h3>
+                <button type="button" onclick="document.getElementById('profile-edit-modal').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <img id="edit-dp-preview" src="" alt="" class="w-16 h-16 rounded-2xl object-cover ring-2 ring-sky-400">
+                <div class="space-y-2">
+                    <label class="tactile-btn inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-bold cursor-pointer">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i> Upload Custom DP
+                        <input type="file" accept="image/*" class="hidden" onchange="handleCustomDpUpload(event)">
+                    </label>
+                    <div id="mock-avatar-row" class="flex gap-1.5"></div>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="text-slate-400 font-semibold">Display Name</label>
+                    <input id="edit-fullname-input" type="text" class="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white">
+                </div>
+                <div>
+                    <label class="text-slate-400 font-semibold">Status Badge</label>
+                    <select id="edit-status-select" class="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white">
+                        <option value="🟢 Online">🟢 Online</option>
+                        <option value="⚡ Focused">⚡ Focused</option>
+                        <option value="🎧 Listening">🎧 Listening</option>
+                        <option value="🌙 Away">🌙 Away</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="button" onclick="saveProfileEdits()" class="tactile-btn primary-cta w-full rounded-2xl text-white font-bold text-xs">
+                Save Profile
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== GROUP CHAT MODAL ==================== -->
+    <div id="new-group-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="w-full max-w-md glass-card rounded-3xl p-6 space-y-4 animate-panel">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Create Group Chat</h3>
+                <button type="button" onclick="document.getElementById('new-group-modal').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white">✕</button>
+            </div>
+            <input id="group-name-input" type="text" placeholder="Group Name (e.g. Weekend Trip)"
+                class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-slate-800 text-sm text-white">
+            <div id="group-friends-checklist" class="space-y-2 max-h-48 overflow-y-auto text-xs"></div>
+            <button type="button" onclick="createNewGroupChat()" class="tactile-btn primary-cta w-full rounded-2xl text-white font-bold text-xs">
+                Create Group
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 24H STATUS MODAL ==================== -->
+    <div id="post-story-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="w-full max-w-sm glass-card rounded-3xl p-6 space-y-4 animate-panel">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white">Update 24h Status</h3>
+                <button type="button" onclick="document.getElementById('post-story-modal').classList.add('hidden')" class="text-slate-400">✕</button>
+            </div>
+            <input id="story-caption-input" type="text" maxlength="90" placeholder="What's happening right now?"
+                class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-slate-800 text-sm text-white">
+            <button type="button" onclick="publishUserStory()" class="tactile-btn primary-cta w-full rounded-2xl text-white font-bold text-xs">
+                Publish Status
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== SKETCH PAD MODAL ==================== -->
+    <div id="sketch-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="w-full max-w-sm glass-card rounded-3xl p-5 space-y-4 animate-panel">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white">Draw Sketch</h3>
+                <button type="button" onclick="document.getElementById('sketch-modal').classList.add('hidden')" class="text-slate-400">✕</button>
+            </div>
+            <canvas id="sketch-canvas" width="320" height="240" class="w-full rounded-2xl bg-slate-950 border border-slate-800 touch-none cursor-crosshair"></canvas>
+            <div class="flex items-center justify-between gap-2">
+                <button type="button" onclick="clearSketchCanvas()" class="tactile-btn px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold">Clear</button>
+                <button type="button" onclick="sendSketchDrawing()" class="tactile-btn px-5 py-2 rounded-xl primary-cta text-white text-xs font-bold">Send Sketch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== POLL MODAL ==================== -->
+    <div id="poll-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="w-full max-w-sm glass-card rounded-3xl p-5 space-y-3 animate-panel">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white">Create Quick Poll</h3>
+                <button type="button" onclick="document.getElementById('poll-modal').classList.add('hidden')" class="text-slate-400">✕</button>
+            </div>
+            <input id="poll-question" type="text" placeholder="Ask a question..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
+            <input id="poll-opt-1" type="text" placeholder="Option 1" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
+            <input id="poll-opt-2" type="text" placeholder="Option 2" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white">
+            <button type="button" onclick="sendPollMessage()" class="tactile-btn primary-cta w-full rounded-2xl text-white text-xs font-bold">Send Poll</button>
+        </div>
+    </div>
+
+    <!-- ==================== CALL OVERLAY MODAL ==================== -->
+    <div id="call-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center">
+        <img id="call-peer-avatar" src="" alt="" class="w-24 h-24 rounded-3xl object-cover ring-4 ring-sky-500/40 mb-4 animate-pulse">
+        <h3 id="call-peer-name" class="text-xl font-bold text-white">@friend</h3>
+        <p id="call-type-label" class="text-xs text-sky-400 mt-1">Encrypted Voice Call • Connecting...</p>
+        <button type="button" onclick="document.getElementById('call-modal').classList.add('hidden')" class="tactile-btn mt-10 w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-600/30">
+            <i data-lucide="phone-off" class="w-6 h-6"></i>
+        </button>
+    </div>
+
+    <!-- TOAST FEEDBACK -->
+    <div id="toast-banner" class="hidden fixed top-5 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-2xl bg-slate-900/95 border border-slate-700 text-xs font-semibold text-white shadow-2xl"></div>
+
+    <!-- ==================== APPLICATION LOGIC & FIREBASE SYNC ==================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import {
+            getAuth,
+            signInAnonymously,
+            signInWithCustomToken,
+            GoogleAuthProvider,
+            signInWithPopup,
+            RecaptchaVerifier,
+            signInWithPhoneNumber
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import {
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            collection,
+            onSnapshot
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import {
+            getDatabase,
+            ref,
+            set as rtdbSet,
+            get as rtdbGet,
+            onValue,
+            onDisconnect
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'pulseslate-2026-app';
+        let db = null;
+        let rtdb = null;
+        let auth = null;
+        let firebaseReady = false;
+        let phoneConfirmationResult = null;
+        let recaptchaVerifierInstance = null;
+        const syncChannel = new BroadcastChannel('pulseslate_sync_v3');
+
+        // Application State
+        let currentUser = null;
+        let activeChatId = null;
+        const allUsersMap = {};
+        const allChatsMap = {};
+        const dismissedPopupInvites = new Set();
+        let wizardState = { mode: 'signup', step: 0, username: '', phoneNumber: '' };
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        const AVATAR_OPTIONS = [
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='a1' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='100%25' stop-color='%234f46e5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' fill='url(%23a1)'/%3E%3Ccircle cx='60' cy='46' r='22' fill='%23fff' opacity='.92'/%3E%3Cpath d='M22 108c6-24 22-34 38-34s32 10 38 34' fill='%23fff' opacity='.92'/%3E%3C/svg%3E",
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='a2' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2310b981'/%3E%3Cstop offset='100%25' stop-color='%230d9488'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' fill='url(%23a2)'/%3E%3Ccircle cx='60' cy='46' r='22' fill='%23fff' opacity='.92'/%3E%3Cpath d='M22 108c6-24 22-34 38-34s32 10 38 34' fill='%23fff' opacity='.92'/%3E%3C/svg%3E",
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='a3' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f43f5e'/%3E%3Cstop offset='100%25' stop-color='%23ea580c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' fill='url(%23a3)'/%3E%3Ccircle cx='60' cy='46' r='22' fill='%23fff' opacity='.92'/%3E%3Cpath d='M22 108c6-24 22-34 38-34s32 10 38 34' fill='%23fff' opacity='.92'/%3E%3C/svg%3E"
+        ];
+
+        // Sustained Memory Helpers (Keeps Login Alive Across App & Browser Restarts)
+        function loadSustainedMemory() {
+            try {
+                const u = JSON.parse(localStorage.getItem('ps_users_v3') || '{}');
+                const c = JSON.parse(localStorage.getItem('ps_chats_v3') || '{}');
+                Object.assign(allUsersMap, u);
+                Object.assign(allChatsMap, c);
+            } catch (_) {}
+        }
+
+        function saveSustainedSession(userObj) {
+            try {
+                if (userObj) {
+                    localStorage.setItem('ps_active_handle_v3', userObj.username);
+                    allUsersMap[userObj.username] = userObj;
+                }
+                localStorage.setItem('ps_users_v3', JSON.stringify(allUsersMap));
+                localStorage.setItem('ps_chats_v3', JSON.stringify(allChatsMap));
+            } catch (_) {}
+        }
+
+        function getSavedSessionHandle() {
+            try {
+                return localStorage.getItem('ps_active_handle_v3') || '';
+            } catch (_) {
+                return '';
+            }
+        }
+
+        // Unified Cloud Write & Read Helpers (Realtime Database + Firestore)
+        async function saveUserCloud(username, userObj) {
+            allUsersMap[username] = userObj;
+            saveSustainedSession(userObj);
+            if (!firebaseReady || !auth?.currentUser) return;
+            const tasks = [];
+            if (rtdb) tasks.push(rtdbSet(ref(rtdb, `artifacts/${appId}/public/data/ig_users/${username}`), userObj));
+            if (db) tasks.push(setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'ig_users', username), userObj));
+            await Promise.allSettled(tasks);
+        }
+
+        async function getUserCloud(username) {
+            if (allUsersMap[username]) return allUsersMap[username];
+            if (!firebaseReady || !auth?.currentUser) return null;
+            if (rtdb) {
+                try {
+                    const snap = await rtdbGet(ref(rtdb, `artifacts/${appId}/public/data/ig_users/${username}`));
+                    if (snap.exists()) {
+                        allUsersMap[username] = snap.val();
+                        return allUsersMap[username];
+                    }
+                } catch (_) {}
+            }
+            if (db) {
+                try {
+                    const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'ig_users', username));
+                    if (snap.exists()) {
+                        allUsersMap[username] = snap.data();
+                        return allUsersMap[username];
+                    }
+                } catch (_) {}
+            }
+            return null;
+        }
+
+        async function saveChatCloud(chatId, chatObj) {
+            allChatsMap[chatId] = chatObj;
+            saveSustainedSession(currentUser);
+            if (!firebaseReady || !auth?.currentUser) return;
+            const tasks = [];
+            if (rtdb) tasks.push(rtdbSet(ref(rtdb, `artifacts/${appId}/public/data/ig_chats/${chatId}`), chatObj));
+            if (db) tasks.push(setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'ig_chats', chatId), chatObj));
+            await Promise.allSettled(tasks);
+        }
+
+        // Toast & Push Notifications
+        window.showToast = function(msg) {
+            const el = document.getElementById('toast-banner');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            clearTimeout(el._timer);
+            el._timer = setTimeout(() => el.classList.add('hidden'), 3200);
+        };
+
+        function triggerPushAlert(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+                try { new Notification(title, { body }); } catch (_) {}
+            }
+        }
+
+        // ==================== PROGRESSIVE WIZARD NAVIGATION ====================
+        function showWizardView(viewId, showProgress = false, stepText = '', pct = 50) {
+            ['wizard-step-0', 'wizard-step-1', 'wizard-step-2', 'wizard-phone-1', 'wizard-phone-2'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+            const prog = document.getElementById('wizard-progress-wrap');
+            if (showProgress) {
+                prog.classList.remove('hidden');
+                document.getElementById('wizard-step-label').textContent = stepText;
+                document.getElementById('wizard-progress-bar').style.width = `${pct}%`;
+            } else {
+                prog.classList.add('hidden');
+            }
+        }
+
+        window.startAuthWizard = function(mode) {
+            wizardState = { mode, step: 1, username: '', phoneNumber: '' };
+            document.getElementById('step1-title').textContent = mode === 'signup' ? 'Choose your @username' : 'Enter your @username';
+            document.getElementById('step1-sub').textContent = mode === 'signup' ? 'Friends will use this unique handle to invite you.' : 'Welcome back to PulseSlate.';
+            document.getElementById('wiz-err-1').classList.add('hidden');
+            showWizardView('wizard-step-1', true, 'Step 1 of 2', 50);
+            setTimeout(() => document.getElementById('wiz-username').focus(), 80);
+        };
+
+        window.wizardBack = function() {
+            if (wizardState.step === 2) {
+                wizardState.step = 1;
+                showWizardView('wizard-step-1', true, 'Step 1 of 2', 50);
+            } else if (wizardState.step === 'phone2') {
+                wizardState.step = 'phone1';
+                showWizardView('wizard-phone-1', true, 'Step 1 of 2', 50);
+            } else {
+                wizardState.step = 0;
+                showWizardView('wizard-step-0', false);
+            }
+        };
+
+        window.wizardNextFromUsername = async function() {
+            const raw = document.getElementById('wiz-username').value.trim().toLowerCase().replace(/^@+/, '');
+            const clean = raw.replace(/[^a-z0-9_.]/g, '');
+            const errEl = document.getElementById('wiz-err-1');
+            errEl.classList.add('hidden');
+
+            if (clean.length < 3) {
+                errEl.textContent = 'Username must be at least 3 characters (letters, numbers, _ or .).';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            await getUserCloud(clean);
+
+            if (wizardState.mode === 'signup' && allUsersMap[clean]) {
+                errEl.textContent = `@${clean} is already taken. Try another handle or Sign In.`;
+                errEl.classList.remove('hidden');
+                return;
+            }
+            if (wizardState.mode === 'login' && !allUsersMap[clean]) {
+                errEl.textContent = `Account @${clean} not found. Tap Back and Create Account.`;
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            wizardState.username = clean;
+            wizardState.step = 2;
+            document.getElementById('wiz-handle-preview').textContent = `@${clean}`;
+            document.getElementById('step2-title').textContent = wizardState.mode === 'signup' ? 'Create a password' : 'Enter your password';
+            document.getElementById('wiz-err-2').classList.add('hidden');
+            showWizardView('wizard-step-2', true, 'Step 2 of 2', 100);
+            setTimeout(() => document.getElementById('wiz-password').focus(), 80);
+        };
+
+        window.completePasswordStep = async function() {
+            const pass = document.getElementById('wiz-password').value;
+            const errEl = document.getElementById('wiz-err-2');
+            errEl.classList.add('hidden');
+
+            if (pass.length < 4) {
+                errEl.textContent = 'Password must be at least 4 characters.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            if (wizardState.mode === 'signup') {
+                const profile = {
+                    username: wizardState.username,
+                    fullName: wizardState.username,
+                    password: pass,
+                    avatar: AVATAR_OPTIONS[Math.floor(Math.random() * AVATAR_OPTIONS.length)],
+                    status: '🟢 Online',
+                    story: '',
+                    friends: [],
+                    incomingInvites: [],
+                    sentInvites: [],
+                    blockedUsers: [],
+                    privacy: { inviteOnly: true, hideReceipts: false, ghostMode: false, screenGuard: false }
+                };
+                await saveUserCloud(profile.username, profile);
+                syncChannel.postMessage({ type: 'sync' });
+                await enterAppSession(profile);
+            } else {
+                const existing = allUsersMap[wizardState.username];
+                if (!existing || existing.password !== pass) {
+                    errEl.textContent = 'Incorrect password. Please try again.';
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                await enterAppSession(existing);
+            }
+        };
+
+        // Google Sign-In
+        window.handleGoogleSignIn = async function() {
+            if (!firebaseReady || !auth) {
+                showToast('Connect Firebase Hosting to use Google Sign-In.');
+                return;
+            }
+            try {
+                const provider = new GoogleAuthProvider();
+                const res = await signInWithPopup(auth, provider);
+                const gUser = res.user;
+                const cleanHandle = (gUser.email ? gUser.email.split('@')[0] : (gUser.displayName || 'user'))
+                    .toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 18) || `user_${Date.now().toString().slice(-4)}`;
+
+                let profile = await getUserCloud(cleanHandle);
+                if (!profile) {
+                    profile = {
+                        username: cleanHandle,
+                        fullName: gUser.displayName || cleanHandle,
+                        email: gUser.email || '',
+                        avatar: gUser.photoURL || AVATAR_OPTIONS[0],
+                        status: '🟢 Online',
+                        story: '',
+                        friends: [],
+                        incomingInvites: [],
+                        sentInvites: [],
+                        blockedUsers: [],
+                        privacy: { inviteOnly: true, hideReceipts: false, ghostMode: false, screenGuard: false }
+                    };
+                    await saveUserCloud(cleanHandle, profile);
+                }
+                await enterAppSession(profile);
+            } catch (err) {
+                showToast(err?.message || 'Google Sign-In cancelled or domain not authorized yet.');
+            }
+        };
+
+        // Phone OTP Authentication
+        window.openPhoneOtpStep = function() {
+            wizardState.step = 'phone1';
+            showWizardView('wizard-phone-1', true, 'Step 1 of 2', 50);
+        };
+
+        window.sendPhoneOtpCode = async function() {
+            const phone = document.getElementById('wiz-phone-input').value.trim();
+            const errEl = document.getElementById('wiz-phone-err-1');
+            errEl.classList.add('hidden');
+            if (!phone.startsWith('+') || phone.length < 10) {
+                errEl.textContent = 'Enter a valid number with country code (e.g. +919876543210).';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            if (!firebaseReady || !auth) {
+                errEl.textContent = 'Firebase Auth is initializing. Please try again in a second.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            try {
+                if (!recaptchaVerifierInstance) {
+                    recaptchaVerifierInstance = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+                }
+                phoneConfirmationResult = await signInWithPhoneNumber(auth, phone, recaptchaVerifierInstance);
+                wizardState.phoneNumber = phone;
+                wizardState.step = 'phone2';
+                document.getElementById('wiz-phone-display').textContent = phone;
+                showWizardView('wizard-phone-2', true, 'Step 2 of 2', 100);
+            } catch (err) {
+                errEl.textContent = err?.message || 'Unable to send OTP. Ensure domain is authorized in Firebase.';
+                errEl.classList.remove('hidden');
+            }
+        };
+
+        window.verifyPhoneOtpCode = async function() {
+            const code = document.getElementById('wiz-otp-code').value.trim();
+            const errEl = document.getElementById('wiz-phone-err-2');
+            errEl.classList.add('hidden');
+            if (code.length < 6 || !phoneConfirmationResult) {
+                errEl.textContent = 'Enter the 6-digit SMS verification code.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            try {
+                const credential = await phoneConfirmationResult.confirm(code);
+                const phoneDigits = (credential.user.phoneNumber || wizardState.phoneNumber).replace(/\D/g, '');
+                const handle = `user_${phoneDigits.slice(-6)}`;
+
+                let profile = await getUserCloud(handle);
+                if (!profile) {
+                    profile = {
+                        username: handle,
+                        fullName: `Member ${phoneDigits.slice(-4)}`,
+                        phoneNumber: credential.user.phoneNumber || wizardState.phoneNumber,
+                        avatar: AVATAR_OPTIONS[1],
+                        status: '🟢 Online',
+                        story: '',
+                        friends: [],
+                        incomingInvites: [],
+                        sentInvites: [],
+                        blockedUsers: [],
+                        privacy: { inviteOnly: true, hideReceipts: false, ghostMode: false, screenGuard: false }
+                    };
+                    await saveUserCloud(handle, profile);
+                }
+                await enterAppSession(profile);
+            } catch (_) {
+                errEl.textContent = 'Invalid or expired OTP code. Please try again.';
+                errEl.classList.remove('hidden');
+            }
+        };
+
+        // ==================== SESSION ENTRY & REAL-TIME SYNC ====================
+        async function enterAppSession(profile) {
+            currentUser = {
+                ...profile,
+                friends: profile.friends || [],
+                incomingInvites: profile.incomingInvites || [],
+                sentInvites: profile.sentInvites || [],
+                blockedUsers: profile.blockedUsers || [],
+                privacy: profile.privacy || { inviteOnly: true, hideReceipts: false, ghostMode: false, screenGuard: false }
+            };
+            saveSustainedSession(currentUser);
+
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-shell').classList.remove('hidden');
+
+            document.getElementById('sidebar-username').textContent = `@${currentUser.username}`;
+            document.getElementById('rail-user-avatar').src = currentUser.avatar || AVATAR_OPTIONS[0];
+            document.getElementById('sidebar-status-pill').textContent = currentUser.privacy?.ghostMode ? '👻 Hidden' : (currentUser.status || '🟢 Online');
+
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().catch(() => {});
+            }
+
+            if (firebaseReady && rtdb) {
+                try {
+                    const presenceRef = ref(rtdb, `artifacts/${appId}/public/presence/${currentUser.username}`);
+                    rtdbSet(presenceRef, { online: true, lastSeen: Date.now() });
+                    onDisconnect(presenceRef).set({ online: false, lastSeen: Date.now() });
+                } catch (_) {}
+            }
+
+            renderStoriesAndNotes();
+            renderChatList();
+            checkIncomingInvitePopups();
+            lucide.createIcons();
+        }
+
+        window.handleLogout = function() {
+            localStorage.removeItem('ps_active_handle_v3');
+            currentUser = null;
+            activeChatId = null;
+            document.getElementById('settings-modal').classList.add('hidden');
+            document.getElementById('app-shell').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            showWizardView('wizard-step-0', false);
+        };
+
+        function handleUsersSnapshotMap(updatedUsers) {
+            const prevInvites = new Set(currentUser?.incomingInvites || []);
+            Object.assign(allUsersMap, updatedUsers);
+            if (currentUser && allUsersMap[currentUser.username]) {
+                currentUser = {
+                    ...allUsersMap[currentUser.username],
+                    friends: allUsersMap[currentUser.username].friends || [],
+                    incomingInvites: allUsersMap[currentUser.username].incomingInvites || [],
+                    sentInvites: allUsersMap[currentUser.username].sentInvites || [],
+                    blockedUsers: allUsersMap[currentUser.username].blockedUsers || []
+                };
+                saveSustainedSession(currentUser);
+                renderStoriesAndNotes();
+                checkIncomingInvitePopups();
+                (currentUser.incomingInvites || []).forEach(h => {
+                    if (!prevInvites.has(h)) {
+                        triggerPushAlert('New Friend Invite', `@${h} wants to chat with you`);
+                    }
+                });
+            }
+        }
+
+        function handleChatsSnapshotMap(updatedChats) {
+            Object.entries(updatedChats).forEach(([id, incomingRaw]) => {
+                const incoming = { id, ...incomingRaw };
+                const existing = allChatsMap[id];
+                if (currentUser && (incoming.participants || []).includes(currentUser.username)) {
+                    const prevLen = existing?.messages?.length || 0;
+                    const nextLen = incoming.messages?.length || 0;
+                    const lastMsg = incoming.messages?.[nextLen - 1];
+                    if (nextLen > prevLen && lastMsg && lastMsg.sender !== currentUser.username) {
+                        triggerPushAlert(`@${lastMsg.sender}`, lastMsg.text || 'Sent a new message');
+                        if (navigator.vibrate) navigator.vibrate(45);
+                    }
+                }
+                allChatsMap[id] = incoming;
+            });
+            if (currentUser) {
+                saveSustainedSession(currentUser);
+                renderChatList();
+                if (activeChatId && allChatsMap[activeChatId]) {
+                    updateActiveChatHeader(allChatsMap[activeChatId]);
+                    renderMessagesThread();
+                }
+            }
+        }
+
+        function attachRealtimeListeners() {
+            loadSustainedMemory();
+            if (firebaseReady && auth?.currentUser) {
+                if (rtdb) {
+                    onValue(ref(rtdb, `artifacts/${appId}/public/data/ig_users`), (snap) => {
+                        if (snap.exists()) handleUsersSnapshotMap(snap.val());
+                    }, () => {});
+                    onValue(ref(rtdb, `artifacts/${appId}/public/data/ig_chats`), (snap) => {
+                        if (snap.exists()) handleChatsSnapshotMap(snap.val());
+                    }, () => {});
+                }
+                if (db) {
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'ig_users'), (snap) => {
+                        const map = {};
+                        snap.forEach(d => { map[d.id] = d.data(); });
+                        handleUsersSnapshotMap(map);
+                    }, () => {});
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'ig_chats'), (snap) => {
+                        const map = {};
+                        snap.forEach(d => { map[d.id] = d.data(); });
+                        handleChatsSnapshotMap(map);
+                    }, () => {});
+                }
+            }
+        }
+
+        // ==================== INVITE-ONLY FRIENDS & POPUPS ====================
+        function getDirectChatId(u1, u2) {
+            return [u1, u2].sort().join('__');
+        }
+
+        async function ensureDirectChatExists(u1, u2) {
+            const chatId = getDirectChatId(u1, u2);
+            if (!allChatsMap[chatId]) {
+                const chatObj = {
+                    id: chatId,
+                    isGroup: false,
+                    participants: [u1, u2],
+                    theme: 'theme-default',
+                    pinnedText: '',
+                    lastMessage: 'Invite accepted! Start chatting 👋',
+                    updatedAt: Date.now(),
+                    messages: []
+                };
+                await saveChatCloud(chatId, chatObj);
+            }
+            return allChatsMap[chatId];
+        }
+
+        function checkIncomingInvitePopups() {
+            if (!currentUser) return;
+            const pending = (currentUser.incomingInvites || []).filter(
+                h => !(currentUser.blockedUsers || []).includes(h)
+            );
+            const dot = document.getElementById('invite-badge-dot');
+            if (pending.length > 0) dot.classList.remove('hidden');
+            else dot.classList.add('hidden');
+
+            const nextInviter = pending.find(h => !dismissedPopupInvites.has(h));
+            const popup = document.getElementById('incoming-invite-popup');
+            if (!nextInviter) {
+                popup.classList.add('hidden');
+                return;
+            }
+            const inviterObj = allUsersMap[nextInviter];
+            document.getElementById('popup-inviter-avatar').src = inviterObj?.avatar || AVATAR_OPTIONS[0];
+            document.getElementById('popup-inviter-name').textContent = `@${nextInviter}`;
+            document.getElementById('popup-accept-btn').onclick = () => respondToFriendInvite(nextInviter, true);
+            document.getElementById('popup-decline-btn').onclick = () => respondToFriendInvite(nextInviter, false);
+            popup.classList.remove('hidden');
+        }
+
+        window.respondToFriendInvite = async function(inviterHandle, accept) {
+            currentUser.incomingInvites = (currentUser.incomingInvites || []).filter(h => h !== inviterHandle);
+            const inviterProfile = await getUserCloud(inviterHandle);
+            if (inviterProfile) {
+                inviterProfile.sentInvites = (inviterProfile.sentInvites || []).filter(h => h !== currentUser.username);
+            }
+
+            if (accept) {
+                currentUser.friends = Array.from(new Set([...(currentUser.friends || []), inviterHandle]));
+                if (inviterProfile) {
+                    inviterProfile.friends = Array.from(new Set([...(inviterProfile.friends || []), currentUser.username]));
+                    await saveUserCloud(inviterHandle, inviterProfile);
+                }
+                await saveUserCloud(currentUser.username, currentUser);
+                const chat = await ensureDirectChatExists(currentUser.username, inviterHandle);
+                showToast(`Accepted @${inviterHandle}'s invite!`);
+                checkIncomingInvitePopups();
+                renderStoriesAndNotes();
+                renderChatList();
+                openConversation(chat.id);
+            } else {
+                dismissedPopupInvites.add(inviterHandle);
+                if (inviterProfile) await saveUserCloud(inviterHandle, inviterProfile);
+                await saveUserCloud(currentUser.username, currentUser);
+                checkIncomingInvitePopups();
+                showToast(`Declined invite from @${inviterHandle}`);
+            }
+            renderModalPendingInvites();
+        };
+
+        window.openInviteModal = function() {
+            document.getElementById('invite-friends-modal').classList.remove('hidden');
+            renderModalPendingInvites();
+        };
+
+        function renderModalPendingInvites() {
+            const container = document.getElementById('modal-pending-invites-list');
+            const incoming = currentUser?.incomingInvites || [];
+            const sent = currentUser?.sentInvites || [];
+            if (!incoming.length && !sent.length) {
+                container.innerHTML = `<p class="text-xs text-slate-500 py-3 text-center">No pending invites right now.</p>`;
+                return;
+            }
+            let html = '';
+            incoming.forEach(h => {
+                html += `
+                <div class="p-3 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-2">
+                    <span class="text-xs font-bold text-white">@${h}</span>
+                    <div class="flex gap-1.5">
+                        <button type="button" onclick="respondToFriendInvite('${h}', false)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 text-xs text-slate-300">Decline</button>
+                        <button type="button" onclick="respondToFriendInvite('${h}', true)" class="px-2.5 py-1.5 rounded-xl bg-sky-500 text-xs font-bold text-white">Accept</button>
+                    </div>
+                </div>`;
+            });
+            sent.forEach(h => {
+                html += `
+                <div class="p-3 rounded-2xl bg-slate-900/60 border border-slate-800/70 flex items-center justify-between">
+                    <span class="text-xs text-slate-300">@${h}</span>
+                    <span class="text-[11px] text-amber-400 font-medium">Awaiting response...</span>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        window.sendFriendInvite = async function() {
+            const input = document.getElementById('invite-username-input');
+            const target = input.value.trim().toLowerCase().replace(/^@+/, '');
+            if (!target || target === currentUser.username) {
+                showToast('Enter a valid friend @username.');
+                return;
+            }
+            if ((currentUser.friends || []).includes(target)) {
+                const chat = await ensureDirectChatExists(currentUser.username, target);
+                document.getElementById('invite-friends-modal').classList.add('hidden');
+                openConversation(chat.id);
+                return;
+            }
+            const targetUser = await getUserCloud(target);
+            if (!targetUser) {
+                showToast(`User @${target} not found yet.`);
+                return;
+            }
+            if ((targetUser.blockedUsers || []).includes(currentUser.username)) {
+                showToast(`Unable to send invite to @${target}.`);
+                return;
+            }
+            targetUser.incomingInvites = Array.from(new Set([...(targetUser.incomingInvites || []), currentUser.username]));
+            currentUser.sentInvites = Array.from(new Set([...(currentUser.sentInvites || []), target]));
+
+            await saveUserCloud(target, targetUser);
+            await saveUserCloud(currentUser.username, currentUser);
+            input.value = '';
+            renderModalPendingInvites();
+            showToast(`Invite sent to @${target}!`);
+        };
+
+        // ==================== RENDER SIDEBAR, STORIES & CHAT THREAD ====================
+        window.switchMainTab = function(tab) {
+            document.getElementById('tab-chats-view').classList.toggle('hidden', tab !== 'chats');
+            document.getElementById('tab-updates-view').classList.toggle('hidden', tab !== 'updates');
+            document.getElementById('nav-chats').className = tab === 'chats'
+                ? 'tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl bg-sky-500/15 text-sky-400 relative'
+                : 'tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800/70 relative';
+            document.getElementById('nav-updates').className = tab === 'updates'
+                ? 'tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl bg-sky-500/15 text-sky-400'
+                : 'tactile-btn flex flex-col items-center justify-center p-2.5 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800/70';
+            if (tab === 'updates') renderUpdatesFeed();
+        };
+
+        function renderStoriesAndNotes() {
+            if (!currentUser) return;
+            const strip = document.getElementById('stories-strip');
+            let html = `
+            <button type="button" onclick="openStoryModal()" class="shrink-0 flex flex-col items-center gap-1.5 group">
+                <div class="relative">
+                    <img src="${currentUser.avatar}" class="w-12 h-12 rounded-2xl object-cover ring-2 ring-slate-700">
+                    <span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-lg bg-sky-500 text-white text-xs font-bold flex items-center justify-center">+</span>
+                </div>
+                <span class="text-[11px] text-slate-400 font-medium">Your Status</span>
+            </button>`;
+
+            (currentUser.friends || []).forEach(fHandle => {
+                const f = allUsersMap[fHandle];
+                if (!f) return;
+                html += `
+                <button type="button" onclick="openDirectWithFriend('${fHandle}')" class="shrink-0 flex flex-col items-center gap-1.5">
+                    <img src="${f.avatar || AVATAR_OPTIONS[0]}" class="w-12 h-12 rounded-2xl object-cover ring-2 ${f.story ? 'ring-sky-400' : 'ring-slate-800'}">
+                    <span class="text-[11px] text-slate-300 font-medium max-w-[64px] truncate">@${fHandle}</span>
+                </button>`;
+            });
+            strip.innerHTML = html;
+        }
+
+        function renderUpdatesFeed() {
+            const list = document.getElementById('updates-feed-list');
+            const handles = [currentUser.username, ...(currentUser.friends || [])];
+            const items = handles.map(h => allUsersMap[h]).filter(u => u && u.story);
+            if (!items.length) {
+                list.innerHTML = `<p class="text-xs text-slate-500 text-center py-8">No 24h status updates from friends yet.</p>`;
+                return;
+            }
+            list.innerHTML = items.map(u => `
+                <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
+                    <img src="${u.avatar || AVATAR_OPTIONS[0]}" class="w-11 h-11 rounded-2xl object-cover">
+                    <div>
+                        <div class="font-bold text-xs text-sky-400">@${u.username}</div>
+                        <div class="text-sm text-white mt-0.5">${escapeHtml(u.story)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.openDirectWithFriend = async function(friendHandle) {
+            const chat = await ensureDirectChatExists(currentUser.username, friendHandle);
+            openConversation(chat.id);
+        };
+
+        window.renderChatList = function() {
+            if (!currentUser) return;
+            const list = document.getElementById('tab-chats-view');
+            const q = (document.getElementById('chat-search-input').value || '').toLowerCase();
+
+            const myChats = Object.values(allChatsMap)
+                .filter(c => (c.participants || []).includes(currentUser.username))
+                .filter(c => {
+                    if (!c.isGroup) {
+                        const peer = (c.participants || []).find(p => p !== currentUser.username);
+                        if ((currentUser.blockedUsers || []).includes(peer)) return false;
+                    }
+                    const label = c.isGroup ? c.groupName : (c.participants || []).find(p => p !== currentUser.username);
+                    return !q || (label || '').toLowerCase().includes(q) || (c.lastMessage || '').toLowerCase().includes(q);
+                })
+                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+            if (!myChats.length) {
+                list.innerHTML = `
+                <div class="text-center py-10 px-4">
+                    <p class="text-xs text-slate-400">No active chats yet.</p>
+                    <button type="button" onclick="openInviteModal()" class="mt-3 px-4 py-2 rounded-xl bg-sky-500/15 text-sky-400 text-xs font-bold border border-sky-500/25">
+                        + Invite Friend by @username
+                    </button>
+                </div>`;
+                return;
+            }
+
+            list.innerHTML = myChats.map(c => {
+                const peer = c.isGroup ? null : (c.participants || []).find(p => p !== currentUser.username);
+                const peerObj = peer ? allUsersMap[peer] : null;
+                const title = c.isGroup ? c.groupName : `@${peer}`;
+                const avatar = c.isGroup ? AVATAR_OPTIONS[2] : (peerObj?.avatar || AVATAR_OPTIONS[0]);
+                const isSelected = c.id === activeChatId;
+                return `
+                <button type="button" onclick="openConversation('${c.id}')"
+                    class="tactile-btn w-full p-3 rounded-2xl flex items-center gap-3 text-left ${isSelected ? 'bg-sky-500/15 border border-sky-500/30' : 'hover:bg-slate-900/75 border border-transparent'}">
+                    <img src="${avatar}" class="w-12 h-12 rounded-2xl object-cover bg-slate-800 shrink-0">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-sm text-white truncate">${escapeHtml(title)}</span>
+                            <span class="text-[10px] text-slate-500">${formatTime(c.updatedAt)}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 truncate mt-0.5">${escapeHtml(c.lastMessage || '')}</p>
+                    </div>
+                </button>`;
+            }).join('');
+        };
+
+        window.openConversation = function(chatId) {
+            activeChatId = chatId;
+            const chat = allChatsMap[chatId];
+            if (!chat) return;
+
+            document.getElementById('empty-chat-placeholder').classList.add('hidden');
+            const thread = document.getElementById('active-thread-container');
+            thread.classList.remove('hidden');
+            thread.className = `flex-1 flex flex-col h-full overflow-hidden ${chat.theme || 'theme-default'}`;
+
+            // Mobile responsive view switch
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar-panel').classList.add('hidden');
+                document.getElementById('chat-stage').classList.remove('hidden');
+                document.getElementById('chat-stage').classList.add('flex');
+            }
+
+            updateActiveChatHeader(chat);
+            renderChatList();
+            renderMessagesThread();
+        };
+
+        window.closeMobileChat = function() {
+            activeChatId = null;
+            document.getElementById('chat-stage').classList.add('hidden');
+            document.getElementById('sidebar-panel').classList.remove('hidden');
+        };
+
+        function updateActiveChatHeader(chat) {
+            const peer = chat.isGroup ? null : (chat.participants || []).find(p => p !== currentUser.username);
+            const peerObj = peer ? allUsersMap[peer] : null;
+            document.getElementById('active-chat-title').textContent = chat.isGroup ? chat.groupName : `@${peer}`;
+            document.getElementById('active-chat-avatar').src = chat.isGroup ? AVATAR_OPTIONS[2] : (peerObj?.avatar || AVATAR_OPTIONS[0]);
+            document.getElementById('active-chat-subtitle').textContent = chat.isGroup
+                ? `${(chat.participants || []).length} members`
+                : (peerObj?.privacy?.ghostMode ? 'Encrypted' : (peerObj?.status || '🟢 Connected'));
+
+            const pinBanner = document.getElementById('pinned-banner');
+            if (chat.pinnedText) {
+                document.getElementById('pinned-banner-text').textContent = chat.pinnedText;
+                pinBanner.classList.remove('hidden');
+            } else {
+                pinBanner.classList.add('hidden');
+            }
+        }
+
+        function renderMessagesThread() {
+            const chat = allChatsMap[activeChatId];
+            const area = document.getElementById('messages-scroll-area');
+            if (!chat) return;
+            const msgs = chat.messages || [];
+
+            if (!msgs.length) {
+                area.innerHTML = `<div class="text-center text-xs text-slate-500 py-10">Say hello to start your encrypted thread!</div>`;
+                return;
+            }
+
+            area.innerHTML = msgs.map((m, i) => {
+                const isMe = m.sender === currentUser.username;
+                const prevSame = i > 0 && msgs[i - 1].sender === m.sender;
+                let bodyHtml = '';
+
+                if (m.type === 'image') {
+                    bodyHtml = `<img src="${m.dataUrl}" class="max-w-[230px] rounded-xl cursor-pointer">`;
+                } else if (m.type === 'audio') {
+                    bodyHtml = `<audio controls src="${m.dataUrl}" class="h-9 max-w-[220px]"></audio>`;
+                } else if (m.type === 'poll') {
+                    const v1 = (m.votes1 || []).length;
+                    const v2 = (m.votes2 || []).length;
+                    bodyHtml = `
+                    <div class="space-y-2 min-w-[200px]">
+                        <div class="font-bold text-xs">📊 ${escapeHtml(m.question)}</div>
+                        <button type="button" onclick="voteInPoll('${m.id}', 1)" class="w-full text-left px-3 py-1.5 rounded-xl bg-black/25 hover:bg-black/40 text-xs flex justify-between">
+                            <span>${escapeHtml(m.opt1)}</span><span>${v1}</span>
+                        </button>
+                        <button type="button" onclick="voteInPoll('${m.id}', 2)" class="w-full text-left px-3 py-1.5 rounded-xl bg-black/25 hover:bg-black/40 text-xs flex justify-between">
+                            <span>${escapeHtml(m.opt2)}</span><span>${v2}</span>
+                        </button>
+                    </div>`;
+                } else {
+                    bodyHtml = `<div class="text-sm leading-relaxed break-words">${escapeHtml(m.text || '')}</div>`;
+                }
+
+                return `
+                <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} ${prevSame ? 'mt-0.5' : 'mt-3'} group">
+                    ${!isMe && !prevSame ? `<span class="text-[10px] text-slate-400 ml-2 mb-1">@${m.sender}</span>` : ''}
+                    <div class="flex items-end gap-1.5 max-w-[82%]">
+                        <div class="px-4 py-2.5 rounded-2xl ${isMe ? 'bubble-me rounded-br-sm' : 'bg-slate-800/95 text-slate-100 rounded-bl-sm border border-slate-700/60'} shadow-sm">
+                            ${bodyHtml}
+                        </div>
+                        <button type="button" onclick="pinMessageText('${m.id}')" title="Pin" class="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 hover:text-sky-400 px-1">📌</button>
+                    </div>
+                    <span class="text-[10px] text-slate-500 mt-1 px-1">${formatTime(m.ts)}</span>
+                </div>`;
+            }).join('');
+
+            area.scrollTop = area.scrollHeight;
+        }
+
+        // ==================== SEND MESSAGES, ATTACHMENTS, VOICE & CALLS ====================
+        async function pushMessageToActiveChat(msgPayload) {
+            if (!activeChatId || !currentUser) return;
+            const chat = allChatsMap[activeChatId];
+            if (!chat) return;
+            chat.messages = chat.messages || [];
+            chat.messages.push({
+                id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                sender: currentUser.username,
+                ts: Date.now(),
+                ...msgPayload
+            });
+            chat.lastMessage = msgPayload.text || (msgPayload.type === 'image' ? '📷 Photo' : msgPayload.type === 'audio' ? '🎤 Voice note' : '📊 Poll');
+            chat.updatedAt = Date.now();
+            await saveChatCloud(activeChatId, chat);
+            renderChatList();
+            renderMessagesThread();
+        }
+
+        window.handleSendTextMessage = async function() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            await pushMessageToActiveChat({ type: 'text', text });
+        };
+
+        window.sendQuickText = async function(text) {
+            await pushMessageToActiveChat({ type: 'text', text });
+        };
+
+        window.toggleAttachmentTray = () => document.getElementById('attachment-tray').classList.toggle('hidden');
+
+        window.handleImageUpload = function(e) {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                document.getElementById('attachment-tray').classList.add('hidden');
+                await pushMessageToActiveChat({ type: 'image', dataUrl: reader.result });
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.shareLiveLocation = function() {
+            document.getElementById('attachment-tray').classList.add('hidden');
+            if (!navigator.geolocation) {
+                showToast('Geolocation not supported on this browser.');
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    await pushMessageToActiveChat({
+                        type: 'text',
+                        text: `📍 Live Location: https://maps.google.com/?q=${latitude.toFixed(5)},${longitude.toFixed(5)}`
+                    });
+                },
+                () => showToast('Location permission denied.')
+            );
+        };
+
+        // Sketch Pad
+        window.openSketchModal = function() {
+            document.getElementById('attachment-tray').classList.add('hidden');
+            document.getElementById('sketch-modal').classList.remove('hidden');
+            initSketchCanvas();
+        };
+
+        function initSketchCanvas() {
+            const canvas = document.getElementById('sketch-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            let drawing = false;
+            const getPos = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const t = e.touches ? e.touches[0] : e;
+                return {
+                    x: (t.clientX - rect.left) * (canvas.width / rect.width),
+                    y: (t.clientY - rect.top) * (canvas.height / rect.height)
+                };
+            };
+            canvas.onpointerdown = (e) => { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+            canvas.onpointermove = (e) => { if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+            canvas.onpointerup = () => { drawing = false; };
+        }
+
+        window.clearSketchCanvas = function() {
+            const canvas = document.getElementById('sketch-canvas');
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        };
+
+        window.sendSketchDrawing = async function() {
+            const dataUrl = document.getElementById('sketch-canvas').toDataURL('image/png');
+            document.getElementById('sketch-modal').classList.add('hidden');
+            clearSketchCanvas();
+            await pushMessageToActiveChat({ type: 'image', dataUrl });
+        };
+
+        // Polls
+        window.openPollModal = function() {
+            document.getElementById('attachment-tray').classList.add('hidden');
+            document.getElementById('poll-modal').classList.remove('hidden');
+        };
+
+        window.sendPollMessage = async function() {
+            const q = document.getElementById('poll-question').value.trim();
+            const o1 = document.getElementById('poll-opt-1').value.trim();
+            const o2 = document.getElementById('poll-opt-2').value.trim();
+            if (!q || !o1 || !o2) return;
+            document.getElementById('poll-modal').classList.add('hidden');
+            await pushMessageToActiveChat({ type: 'poll', question: q, opt1: o1, opt2: o2, votes1: [], votes2: [] });
+        };
+
+        window.voteInPoll = async function(msgId, optNum) {
+            const chat = allChatsMap[activeChatId];
+            const msg = chat?.messages?.find(m => m.id === msgId);
+            if (!msg) return;
+            msg.votes1 = (msg.votes1 || []).filter(u => u !== currentUser.username);
+            msg.votes2 = (msg.votes2 || []).filter(u => u !== currentUser.username);
+            if (optNum === 1) msg.votes1.push(currentUser.username);
+            else msg.votes2.push(currentUser.username);
+            await saveChatCloud(activeChatId, chat);
+            renderMessagesThread();
+        };
+
+        // Voice Note Recording
+        window.toggleVoiceRecording = async function() {
+            const btn = document.getElementById('voice-record-btn');
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                btn.classList.remove('bg-rose-600', 'text-white');
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.onload = async () => await pushMessageToActiveChat({ type: 'audio', dataUrl: reader.result });
+                    reader.readAsDataURL(blob);
+                };
+                mediaRecorder.start();
+                btn.classList.add('bg-rose-600', 'text-white');
+                showToast('Recording voice note... tap mic again to send');
+            } catch (_) {
+                showToast('Microphone access denied.');
+            }
+        };
+
+        // Pin & Customization
+        window.pinMessageText = async function(msgId) {
+            const chat = allChatsMap[activeChatId];
+            const msg = chat?.messages?.find(m => m.id === msgId);
+            if (!msg) return;
+            chat.pinnedText = msg.text || 'Pinned attachment';
+            await saveChatCloud(activeChatId, chat);
+            updateActiveChatHeader(chat);
+        };
+
+        window.clearPinnedMessage = async function() {
+            const chat = allChatsMap[activeChatId];
+            if (!chat) return;
+            chat.pinnedText = '';
+            await saveChatCloud(activeChatId, chat);
+            updateActiveChatHeader(chat);
+        };
+
+        window.toggleThreadSettings = () => document.getElementById('thread-settings-drawer').classList.toggle('hidden');
+        window.setChatTheme = async function(theme) {
+            const chat = allChatsMap[activeChatId];
+            if (!chat) return;
+            chat.theme = theme;
+            document.getElementById('active-thread-container').className = `flex-1 flex flex-col h-full overflow-hidden ${theme}`;
+            await saveChatCloud(activeChatId, chat);
+        };
+        window.setChatWallpaper = function(wp) {
+            document.getElementById('messages-scroll-area').className = `flex-1 overflow-y-auto p-4 space-y-2.5 relative ${wp}`;
+        };
+
+        // Calls
+        window.startCallModal = function(kind) {
+            const chat = allChatsMap[activeChatId];
+            if (!chat) return;
+            const peer = chat.isGroup ? chat.groupName : `@${(chat.participants || []).find(p => p !== currentUser.username)}`;
+            document.getElementById('call-peer-name').textContent = peer;
+            document.getElementById('call-peer-avatar').src = document.getElementById('active-chat-avatar').src;
+            document.getElementById('call-type-label').textContent = `Encrypted ${kind} Call • Ringing...`;
+            document.getElementById('call-modal').classList.remove('hidden');
+        };
+
+        // ==================== SETTINGS, PRIVACY, PROFILE & GROUPS ====================
+        window.openSettingsModal = function() {
+            const p = currentUser.privacy || {};
+            document.getElementById('priv-invite-only').checked = p.inviteOnly !== false;
+            document.getElementById('priv-hide-receipts').checked = !!p.hideReceipts;
+            document.getElementById('priv-ghost-mode').checked = !!p.ghostMode;
+            document.getElementById('priv-screen-guard').checked = !!p.screenGuard;
+            renderBlockedUsersList();
+            document.getElementById('settings-modal').classList.remove('hidden');
+        };
+
+        window.savePrivacySettings = async function() {
+            currentUser.privacy = {
+                inviteOnly: document.getElementById('priv-invite-only').checked,
+                hideReceipts: document.getElementById('priv-hide-receipts').checked,
+                ghostMode: document.getElementById('priv-ghost-mode').checked,
+                screenGuard: document.getElementById('priv-screen-guard').checked
+            };
+            document.getElementById('sidebar-status-pill').textContent = currentUser.privacy.ghostMode ? '👻 Hidden' : (currentUser.status || '🟢 Online');
+            await saveUserCloud(currentUser.username, currentUser);
+            showToast('Privacy settings saved');
+        };
+
+        window.blockUserByHandle = async function() {
+            const input = document.getElementById('block-username-input');
+            const target = input.value.trim().toLowerCase().replace(/^@+/, '');
+            if (!target || target === currentUser.username) return;
+            currentUser.blockedUsers = Array.from(new Set([...(currentUser.blockedUsers || []), target]));
+            currentUser.friends = (currentUser.friends || []).filter(f => f !== target);
+            currentUser.incomingInvites = (currentUser.incomingInvites || []).filter(f => f !== target);
+            input.value = '';
+            await saveUserCloud(currentUser.username, currentUser);
+            renderBlockedUsersList();
+            renderChatList();
+            showToast(`Blocked @${target}`);
+        };
+
+        window.unblockUserHandle = async function(target) {
+            currentUser.blockedUsers = (currentUser.blockedUsers || []).filter(u => u !== target);
+            await saveUserCloud(currentUser.username, currentUser);
+            renderBlockedUsersList();
+            showToast(`Unblocked @${target}`);
+        };
+
+        function renderBlockedUsersList() {
+            const box = document.getElementById('blocked-users-list');
+            const blocked = currentUser?.blockedUsers || [];
+            box.innerHTML = blocked.map(u => `
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300">
+                    @${u} <button type="button" onclick="unblockUserHandle('${u}')" class="text-rose-400 font-bold">✕</button>
+                </span>
+            `).join('');
+        }
+
+        window.openProfileEditModal = function() {
+            document.getElementById('edit-dp-preview').src = currentUser.avatar || AVATAR_OPTIONS[0];
+            document.getElementById('edit-fullname-input').value = currentUser.fullName || currentUser.username;
+            document.getElementById('edit-status-select').value = currentUser.status || '🟢 Online';
+            document.getElementById('mock-avatar-row').innerHTML = AVATAR_OPTIONS.map((url, idx) => `
+                <button type="button" onclick="selectPresetAvatar(${idx})" class="w-7 h-7 rounded-lg overflow-hidden ring-1 ring-slate-700">
+                    <img src="${url}" class="w-full h-full object-cover">
+                </button>
+            `).join('');
+            document.getElementById('profile-edit-modal').classList.remove('hidden');
+        };
+
+        window.selectPresetAvatar = function(idx) {
+            document.getElementById('edit-dp-preview').src = AVATAR_OPTIONS[idx];
+        };
+
+        window.handleCustomDpUpload = function(e) {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => { document.getElementById('edit-dp-preview').src = reader.result; };
+            reader.readAsDataURL(file);
+        };
+
+        window.saveProfileEdits = async function() {
+            currentUser.avatar = document.getElementById('edit-dp-preview').src;
+            currentUser.fullName = document.getElementById('edit-fullname-input').value.trim() || currentUser.username;
+            currentUser.status = document.getElementById('edit-status-select').value;
+            document.getElementById('rail-user-avatar').src = currentUser.avatar;
+            document.getElementById('sidebar-status-pill').textContent = currentUser.privacy?.ghostMode ? '👻 Hidden' : currentUser.status;
+            await saveUserCloud(currentUser.username, currentUser);
+            document.getElementById('profile-edit-modal').classList.add('hidden');
+            renderStoriesAndNotes();
+            showToast('Profile saved!');
+        };
+
+        window.openStoryModal = () => document.getElementById('post-story-modal').classList.remove('hidden');
+        window.publishUserStory = async function() {
+            currentUser.story = document.getElementById('story-caption-input').value.trim();
+            await saveUserCloud(currentUser.username, currentUser);
+            document.getElementById('post-story-modal').classList.add('hidden');
+            renderStoriesAndNotes();
+            renderUpdatesFeed();
+            showToast('24h Status published!');
+        };
+
+        window.openGroupModal = function() {
+            const friends = currentUser?.friends || [];
+            const box = document.getElementById('group-friends-checklist');
+            box.innerHTML = friends.length
+                ? friends.map(f => `<label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800"><input type="checkbox" value="${f}" class="grp-member-cb accent-sky-500"> @${f}</label>`).join('')
+                : `<p class="text-slate-500 text-center py-3">Accept friends first to add them to a group.</p>`;
+            document.getElementById('new-group-modal').classList.remove('hidden');
+        };
+
+        window.createNewGroupChat = async function() {
+            const name = document.getElementById('group-name-input').value.trim() || 'Pulse Group';
+            const selected = Array.from(document.querySelectorAll('.grp-member-cb:checked')).map(cb => cb.value);
+            if (!selected.length) {
+                showToast('Select at least one friend.');
+                return;
+            }
+            const chatId = `grp_${Date.now()}`;
+            await saveChatCloud(chatId, {
+                id: chatId,
+                isGroup: true,
+                groupName: name,
+                participants: [currentUser.username, ...selected],
+                theme: 'theme-default',
+                lastMessage: 'Group created',
+                updatedAt: Date.now(),
+                messages: []
+            });
+            document.getElementById('new-group-modal').classList.add('hidden');
+            renderChatList();
+            openConversation(chatId);
+        };
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+        }
+
+        function formatTime(ts) {
+            if (!ts) return '';
+            return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Screen Guard Listener
+        window.addEventListener('blur', () => {
+            if (currentUser?.privacy?.screenGuard) document.body.classList.add('screen-guarded');
+        });
+        window.addEventListener('focus', () => document.body.classList.remove('screen-guarded'));
+
+        // ==================== BOOTSTRAP ON LOAD ====================
+        window.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
+            loadSustainedMemory();
+
+            try {
+                const defaultFirebaseConfig = {
+                    apiKey: "AIzaSyCqdys-U8aBAaKPgP6ym4cnBY9d9Cli0uM",
+                    authDomain: "cioninstagram.firebaseapp.com",
+                    databaseURL: "https://cioninstagram-default-rtdb.firebaseio.com",
+                    projectId: "cioninstagram",
+                    storageBucket: "cioninstagram.firebasestorage.app",
+                    messagingSenderId: "523407310822",
+                    appId: "1:523407310822:web:399f989e11ce97eea9a027",
+                    measurementId: "G-8RQC2JJVQ3"
+                };
+                const activeConfig = (typeof __firebase_config !== 'undefined' && __firebase_config)
+                    ? JSON.parse(__firebase_config)
+                    : defaultFirebaseConfig;
+
+                const app = initializeApp(activeConfig);
+                db = getFirestore(app);
+                try { rtdb = getDatabase(app); } catch (_) {}
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+                firebaseReady = true;
+                attachRealtimeListeners();
+            } catch (e) {
+                console.warn('Running in local sustained memory mode', e);
+            }
+
+            const savedHandle = getSavedSessionHandle();
+            if (savedHandle) {
+                await getUserCloud(savedHandle);
+                if (allUsersMap[savedHandle]) {
+                    await enterAppSession(allUsersMap[savedHandle]);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
