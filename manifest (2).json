@@ -1,0 +1,12 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "arsuvlms-commits.github",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "arsuvlms-commits.github",
+  "start_url": "/",
+  "theme_color": "#090d16",
+  "id": "uihm"
+}
